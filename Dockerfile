@@ -1,17 +1,19 @@
-ARG base=nvidia/cuda:11.6.2-cudnn8-runtime-ubuntu20.04
+# use devel to compile vllm
+ARG base=nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04
+
+ARG commit=main
 
 FROM ${base}
 
 ENV DEBIAN_FRONTEND=noninteractive LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
-ARG MOSEC_PORT=8080
-ENV MOSEC_PORT=${MOSEC_PORT}
-
-ARG CONDA_VERSION=py310_22.11.1-1
+ARG CONDA_VERSION=py310_23.3.1-0
 
 RUN apt update && \
     apt install -y --no-install-recommends \
         wget \
+        git \
+        build-essential \
         ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
@@ -19,16 +21,16 @@ RUN set -x && \
     UNAME_M="$(uname -m)" && \
     if [ "${UNAME_M}" = "x86_64" ]; then \
         MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-${CONDA_VERSION}-Linux-x86_64.sh"; \
-        SHA256SUM="00938c3534750a0e4069499baf8f4e6dc1c2e471c86a59caa0dd03f4a9269db6"; \
+        SHA256SUM="aef279d6baea7f67940f16aad17ebe5f6aac97487c7c03466ff01f4819e5a651"; \
     elif [ "${UNAME_M}" = "s390x" ]; then \
         MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-${CONDA_VERSION}-Linux-s390x.sh"; \
-        SHA256SUM="a150511e7fd19d07b770f278fb5dd2df4bc24a8f55f06d6274774f209a36c766"; \
+        SHA256SUM="ed4f51afc967e921ff5721151f567a4c43c4288ac93ec2393c6238b8c4891de8"; \
     elif [ "${UNAME_M}" = "aarch64" ]; then \
         MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-${CONDA_VERSION}-Linux-aarch64.sh"; \
-        SHA256SUM="48a96df9ff56f7421b6dd7f9f71d548023847ba918c3826059918c08326c2017"; \
+        SHA256SUM="6950c7b1f4f65ce9b87ee1a2d684837771ae7b2e6044e0da9e915d1dee6c924c"; \
     elif [ "${UNAME_M}" = "ppc64le" ]; then \
         MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-${CONDA_VERSION}-Linux-ppc64le.sh"; \
-        SHA256SUM="4c86c3383bb27b44f7059336c3a46c34922df42824577b93eadecefbf7423836"; \
+        SHA256SUM="b3de538cd542bc4f5a2f2d2a79386288d6e04f0e1459755f3cefe64763e51d16"; \
     fi && \
     wget "${MINICONDA_URL}" -O miniconda.sh -q && \
     echo "${SHA256SUM} miniconda.sh" > shasum && \
@@ -43,30 +45,27 @@ RUN set -x && \
     find /opt/conda/ -follow -type f -name '*.js.map' -delete && \
     /opt/conda/bin/conda clean -afy
 
-RUN /opt/conda/bin/conda create -n envd python=3.9
+ENV PYTHON_PREFIX=/opt/conda/bin
 
-ENV ENVD_PREFIX=/opt/conda/envs/envd/bin
+RUN update-alternatives --install /usr/bin/python python ${PYTHON_PREFIX}/python 1 && \
+    update-alternatives --install /usr/bin/python3 python3 ${PYTHON_PREFIX}/python3 1 && \
+    update-alternatives --install /usr/bin/pip pip ${PYTHON_PREFIX}/pip 1 && \
+    update-alternatives --install /usr/bin/pip3 pip3 ${PYTHON_PREFIX}/pip3 1
 
-RUN update-alternatives --install /usr/bin/python python ${ENVD_PREFIX}/python 1 && \
-    update-alternatives --install /usr/bin/python3 python3 ${ENVD_PREFIX}/python3 1 && \
-    update-alternatives --install /usr/bin/pip pip ${ENVD_PREFIX}/pip 1 && \
-    update-alternatives --install /usr/bin/pip3 pip3 ${ENVD_PREFIX}/pip3 1
-
-COPY requirements.txt /
-
-RUN pip install -r requirements.txt
+# torch should be installed before the vllm to avoid some bugs
+RUN pip install torch fschat accelerate
 
 RUN mkdir -p /workspace
+# COPY warmup.py /workspace/warmup.py
 
-COPY main.py workspace/
+RUN git clone https://github.com/vllm-project/vllm.git /workspace/vllm && \
+    cd /workspace/vllm && \
+    git checkout ${commit} && \
+    pip install -e .
 
-WORKDIR /workspace
+# download the model
+# RUN python /workspace/warmup.py
 
-RUN python main.py --dry-run
+WORKDIR /workspace/vllm
 
-# disable huggingface update check (could be very slow)
-ENV HF_HUB_OFFLINE=true
-
-ENTRYPOINT [ "python", "main.py" ]
-# Set inference timeout to 60s
-CMD [ "--timeout", "60000" ]
+ENTRYPOINT [ "python", "-m", "vllm.entrypoints.openai.api_server", "--worker-use-ray", "--host", "0.0.0.0", "--port", "8000", "--model", "meta-llama/Llama-2-7b-hf", "--gpu-memory-utilization", "0.85" ]
