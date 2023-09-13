@@ -1,20 +1,21 @@
 # syntax=v1
 
 
-def basic():
-    install.cuda(version="11.6.2")
+def vllm():
+    install.conda()
     install.python()
-    install.python_packages(requirements="requirements.txt")
+    install.apt_packages(name=["build-essential"])
+    install.python_packages(name=["torch", "fschat", "accelerate"])
+    # install from source
+    install.python_packages(name=["git+https://github.com/vllm-project/vllm.git"])
 
 
 def build():
-    base(dev=True)
-    basic()
-    runtime.expose(envd_port=8000, host_port=8000, service="sd")
+    # this comes with dev tools
+    base(image="nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04", dev=True)
+    vllm()
 
 
 def serving():
-    basic()
-    io.copy("main.py", "/")
-    run(["python main.py --dry-run"])
-    config.entrypoint(["python", "main.py", "--timeout", "30000"])
+    base(image="nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04")
+    vllm()
