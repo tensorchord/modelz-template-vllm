@@ -1,13 +1,12 @@
 # use devel to compile vllm
 ARG base=nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04
 
-ARG commit=main
-
 FROM ${base}
 
-ENV DEBIAN_FRONTEND=noninteractive LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
-
+ARG commit=main
 ARG CONDA_VERSION=py310_23.3.1-0
+
+ENV DEBIAN_FRONTEND=noninteractive LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
 RUN apt update && \
     apt install -y --no-install-recommends \
@@ -53,7 +52,7 @@ RUN update-alternatives --install /usr/bin/python python ${PYTHON_PREFIX}/python
     update-alternatives --install /usr/bin/pip3 pip3 ${PYTHON_PREFIX}/pip3 1
 
 # torch should be installed before the vllm to avoid some bugs
-RUN pip install torch fschat accelerate
+RUN pip install torch fschat accelerate ray pandas
 
 RUN mkdir -p /workspace
 # COPY warmup.py /workspace/warmup.py
