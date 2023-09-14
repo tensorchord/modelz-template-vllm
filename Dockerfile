@@ -67,4 +67,4 @@ RUN git clone https://github.com/vllm-project/vllm.git /workspace/vllm && \
 
 WORKDIR /workspace/vllm
 
-ENTRYPOINT [ "python", "-m", "vllm.entrypoints.openai.api_server", "--worker-use-ray", "--host", "0.0.0.0", "--port", "8000", "--model", "meta-llama/Llama-2-7b-hf", "--gpu-memory-utilization", "0.85" ]
+ENTRYPOINT [ "python", "-m", "vllm.entrypoints.openai.api_server", "--worker-use-ray", "--host", "0.0.0.0", "--port", "8080", "--model", "meta-llama/Llama-2-7b-hf", "--gpu-memory-utilization", "0.85" ]
