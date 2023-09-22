@@ -3,7 +3,8 @@ ARG base=nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04
 
 FROM ${base}
 
-ARG commit=main
+ARG COMMIT=main
+ARG MODEL=meta-llama/Llama-2-7b-hf
 ARG CONDA_VERSION=py310_23.3.1-0
 
 ENV DEBIAN_FRONTEND=noninteractive LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
@@ -52,19 +53,19 @@ RUN update-alternatives --install /usr/bin/python python ${PYTHON_PREFIX}/python
     update-alternatives --install /usr/bin/pip3 pip3 ${PYTHON_PREFIX}/pip3 1
 
 # torch should be installed before the vllm to avoid some bugs
-RUN pip install torch fschat accelerate ray pandas
+RUN pip install torch fschat accelerate ray pandas huggingface_hub
 
 RUN mkdir -p /workspace
-# COPY warmup.py /workspace/warmup.py
 
 RUN git clone https://github.com/vllm-project/vllm.git /workspace/vllm && \
     cd /workspace/vllm && \
-    git checkout ${commit} && \
+    git checkout ${COMMIT} && \
     pip install -e .
 
-# download the model
-# RUN python /workspace/warmup.py
-
 WORKDIR /workspace/vllm
+# download the model
+# COPY warmup.py /workspace/warmup.py
+# ENV HUGGING_FACE_HUB_TOKEN=
+# RUN python /workspace/warmup.py $MODEL
 
-ENTRYPOINT [ "python", "-m", "vllm.entrypoints.openai.api_server", "--worker-use-ray", "--host", "0.0.0.0", "--port", "8080", "--model", "meta-llama/Llama-2-7b-hf", "--gpu-memory-utilization", "0.85" ]
+ENTRYPOINT [ "python", "-m", "vllm.entrypoints.openai.api_server", "--worker-use-ray", "--host", "0.0.0.0", "--port", "8080", "--gpu-memory-utilization", "0.85" ]
