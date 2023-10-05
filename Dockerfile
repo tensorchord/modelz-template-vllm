@@ -53,7 +53,7 @@ RUN update-alternatives --install /usr/bin/python python ${PYTHON_PREFIX}/python
     update-alternatives --install /usr/bin/pip3 pip3 ${PYTHON_PREFIX}/pip3 1
 
 # torch should be installed before the vllm to avoid some bugs
-RUN pip install torch --index-url https://download.pytorch.org/whl/cu118 
+RUN pip install torch==2.0.1 --index-url https://download.pytorch.org/whl/cu118 
 RUN pip install fschat accelerate ray pandas numpy huggingface_hub
 RUN pip install xformers --no-deps
 RUN pip install ninja psutil pyarrow sentencepiece transformers fastapi uvicorn[standard] 'pydantic<2'
