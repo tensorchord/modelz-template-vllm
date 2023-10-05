@@ -53,16 +53,19 @@ RUN update-alternatives --install /usr/bin/python python ${PYTHON_PREFIX}/python
     update-alternatives --install /usr/bin/pip3 pip3 ${PYTHON_PREFIX}/pip3 1
 
 # torch should be installed before the vllm to avoid some bugs
-RUN pip install torch fschat accelerate ray pandas huggingface_hub
+RUN pip install torch --index-url https://download.pytorch.org/whl/cu118 
+RUN pip install fschat accelerate ray pandas numpy huggingface_hub
+RUN pip install xformers --no-deps
+RUN pip install ninja psutil pyarrow sentencepiece transformers fastapi uvicorn[standard] 'pydantic<2'
 
 RUN mkdir -p /workspace
 
 RUN git clone https://github.com/vllm-project/vllm.git /workspace/vllm && \
     cd /workspace/vllm && \
     git checkout ${COMMIT} && \
-    pip install -e .
+    pip install --no-deps --no-build-isolation .
 
-WORKDIR /workspace/vllm
+WORKDIR /workspace
 # download the model
 # COPY warmup.py /workspace/warmup.py
 # ENV HUGGING_FACE_HUB_TOKEN=
